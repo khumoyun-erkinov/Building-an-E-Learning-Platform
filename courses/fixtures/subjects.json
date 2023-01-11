@@ -1,7 +1,7 @@
 [
 {
   "model": "courses.subject",
-  "pk": 5,
+  "pk": 1,
   "fields": {
     "title": "Mathematics",
     "slug": "mathematics"
@@ -9,7 +9,7 @@
 },
 {
   "model": "courses.subject",
-  "pk": 6,
+  "pk": 2,
   "fields": {
     "title": "Music",
     "slug": "music"
@@ -17,18 +17,18 @@
 },
 {
   "model": "courses.subject",
-  "pk": 7,
+  "pk": 3,
   "fields": {
-    "title": "Physics",
-    "slug": "physics"
+    "title": "Programming",
+    "slug": "programming"
   }
 },
 {
   "model": "courses.subject",
-  "pk": 8,
+  "pk": 4,
   "fields": {
-    "title": "Programming",
-    "slug": "programming"
+    "title": "Physics",
+    "slug": "physics"
   }
 }
 ]

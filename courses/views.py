@@ -1,27 +1,30 @@
 from django.views.generic.list import ListView
-from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from .models import Course
+from django.views.generic.edit import CreateView, \
+    UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from .models import Course
 from django.shortcuts import redirect, get_object_or_404
 from django.views.generic.base import TemplateResponseMixin, View
 from .forms import ModuleFormSet
 from django.forms.models import modelform_factory
 from django.apps import apps
 from .models import Module, Content
-from braces.views import CsrfExemptMixin, JSONRequestResponseMixin
+from braces.views import CsrfExemptMixin, JsonRequestResponseMixin
+from django.db.models import Count
+from .models import Subject
+from django.views.generic.detail import DetailView
+from students.forms import CourseEnrollForm
+from django.core.cache import cache
 
 
 class ManageCourseListView(ListView):
     model = Course
-
     template_name = 'courses/manage/course/list.html'
 
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.filter(owner=self.request.user)
-
-    # get_queryset --# bu user tomonidan faqat yaratilgan curs olish uchun foydalaniladi
 
 
 class OwnerMixin:
@@ -35,47 +38,28 @@ class OwnerEditMixin:
         form.instance.owner = self.request.user
         return super().form_valid(form)
 
-    # form_valid() is executed when the submitted form is valid.
-
 
 class OwnerCourseMixin(OwnerMixin, LoginRequiredMixin, PermissionRequiredMixin):
     model = Course
     fields = ['subject', 'title', 'slug', 'overview']
     success_url = reverse_lazy('manage_course_list')
 
-    # OwnerCourseMixin - # Yani bu OwnerMixingdan voril olisj
-    # model = Course - # Model so`rovlar uchun ishlatiladi
-    # fields =  # field =   Model maydon quradi CreateView and UpdateView ko`rinishda
-    # success_url - # Success_url - bu createview, updateview, deleteview dan foydalanganda userga render qilib beradi qachonki  muvofaqiyatli submit qilinsa yoki uchurilsa # keyinroq yaratmoqchisz
-    #
-    #
-
 
 class OwnerCourseEditMixin(OwnerCourseMixin, OwnerEditMixin):
     template_name = 'courses/manage/course/form.html'
-
-    # CreateView va UpdateView ko'rinishlari uchun foydalanadigan shablon.
 
 
 class ManageCourseListView(OwnerCourseMixin, ListView):
     template_name = 'courses/manage/course/list.html'
     permission_required = 'courses.view_course'
 
-    # ManageCourseListView =  # User tomonidan yaratiladi va voris oladi Ownercoumix and listvie dan
-    # permission_required = userga ko`rishga ruhsat berish
-
 
 class CourseCreateView(OwnerCourseEditMixin, CreateView):
     permission_required = 'courses.add_course'
 
-    # CuurseCreateVIew = # Yangi kurs modellarini yaratishda model formdan foy.. va U OwnerCourseMIxin ichida model form fieldini ko`rsatadi,Templatedan foydalandildi
-
 
 class CourseUpdateView(OwnerCourseEditMixin, UpdateView):
     permission_required = 'courses.change_course'
-
-
-# Maxsus classlani o`zgartirshga
 
 
 class CourseDeleteView(OwnerCourseMixin, DeleteView):
@@ -83,14 +67,13 @@ class CourseDeleteView(OwnerCourseMixin, DeleteView):
     permission_required = 'courses.delete_course'
 
 
-# CourseDeleteView = Kursi uchurish uchun meros oladi class ichidagindan
-
 class CourseModuleUpdateView(TemplateResponseMixin, View):
     template_name = 'courses/manage/module/formset.html'
     course = None
 
     def get_formset(self, data=None):
-        return ModuleFormSet(instance=self.course, data=data)
+        return ModuleFormSet(instance=self.course,
+                             data=data)
 
     def dispatch(self, request, pk):
         self.course = get_object_or_404(Course,
@@ -102,8 +85,7 @@ class CourseModuleUpdateView(TemplateResponseMixin, View):
         formset = self.get_formset()
         return self.render_to_response({
             'course': self.course,
-            'formset': formset
-        })
+            'formset': formset})
 
     def post(self, request, *args, **kwargs):
         formset = self.get_formset(data=request.POST)
@@ -112,12 +94,7 @@ class CourseModuleUpdateView(TemplateResponseMixin, View):
             return redirect('manage_course_list')
         return self.render_to_response({
             'course': self.course,
-            'formset': formset
-        })
-
-
-# TemplateResponseMixin = HTTP respose qaytaradi va aralash sabloni ko`rsatadi
-# va chaqiradi template_namelani va render_to_resposega methodiga shablni render qiladi
+            'formset': formset})
 
 
 class ContentCreateUpdateView(TemplateResponseMixin, View):
@@ -132,17 +109,12 @@ class ContentCreateUpdateView(TemplateResponseMixin, View):
                                   model_name=model_name)
         return None
 
-    # get_model = tekshiradi berilgan madil nomini 4 ta contentdan biriga
-
     def get_form(self, model, *args, **kwargs):
-        Form = modelform_factory(model, exclude=[
-            'owner',
-            'order',
-            'created',
-            'updated', ])
+        Form = modelform_factory(model, exclude=['owner',
+                                                 'order',
+                                                 'created',
+                                                 'updated'])
         return Form(*args, **kwargs)
-
-    # form = model qurib berad
 
     def dispatch(self, request, module_id, model_name, id=None):
         self.module = get_object_or_404(Module,
@@ -155,14 +127,12 @@ class ContentCreateUpdateView(TemplateResponseMixin, View):
                                          owner=request.user)
         return super().dispatch(request, module_id, model_name, id)
 
-    # Dispatch == Url parameteri oladi va mos madelga save  qiladi
-
     def get(self, request, module_id, model_name, id=None):
         form = self.get_form(self.model, instance=self.obj)
         return self.render_to_response({'form': form,
                                         'object': self.obj})
 
-    def post(self, request, module_id, modul_name, id=None):
+    def post(self, request, module_id, model_name, id=None):
         form = self.get_form(self.model,
                              instance=self.obj,
                              data=request.POST,
@@ -172,21 +142,20 @@ class ContentCreateUpdateView(TemplateResponseMixin, View):
             obj.owner = request.user
             obj.save()
             if not id:
+                # new content
                 Content.objects.create(module=self.module,
                                        item=obj)
-
-            return redirect('module_content_list', self.module,
-                            item=obj)
+            return redirect('module_content_list', self.module.id)
         return self.render_to_response({'form': form,
                                         'object': self.obj})
 
 
 class ContentDeleteView(View):
-
     def post(self, request, id):
         content = get_object_or_404(Content,
                                     id=id,
                                     module__course__owner=request.user)
+
         module = content.module
         content.item.delete()
         content.delete()
@@ -204,20 +173,60 @@ class ModuleContentListView(TemplateResponseMixin, View):
 
 
 class ModuleOrderView(CsrfExemptMixin,
-                      JSONRequestResponseMixin,
+                      JsonRequestResponseMixin,
                       View):
     def post(self, request):
         for id, order in self.request_json.items():
             Module.objects.filter(id=id,
                                   course__owner=request.user).update(order=order)
-        return self.render_json_response({'saved': 'ok'})
+        return self.render_json_response({'saved': 'OK'})
 
 
 class ContentOrderView(CsrfExemptMixin,
-                       JSONRequestResponseMixin,
+                       JsonRequestResponseMixin,
                        View):
-    def post(self, requser):
+    def post(self, request):
         for id, order in self.request_json.items():
             Content.objects.filter(id=id,
-                                   module__course__owner=requser.user).update(order=order)
-        return self.render_json_response({'save': 'OK'})
+                                   module__course__owner=request.user).update(order=order)
+        return self.render_json_response({'saved': 'OK'})
+
+
+class CourseListView(TemplateResponseMixin, View):
+    model = Course
+    template_name = 'courses/course/list.html'
+
+    def get(self, request, subject=None):
+        subjects = cache.get('all_subjects')
+        if not subjects:
+            subjects = Subject.objects.annotate(
+                total_courses=Count('courses'))
+            cache.set('all_subjects', subjects)
+        all_courses = Course.objects.annotate(
+            total_modules=Count('modules'))
+        if subject:
+            subject = get_object_or_404(Subject, slug=subject)
+            key = f'subject_{subject.id}_courses'
+            courses = cache.get(key)
+            if not courses:
+                courses = all_courses.filter(subject=subject)
+                cache.set(key, courses)
+        else:
+            courses = cache.get('all_courses')
+            if not courses:
+                courses = all_courses
+                cache.set('all_courses', courses)
+        return self.render_to_response({'subjects': subjects,
+                                        'subject': subject,
+                                        'courses': courses})
+
+
+class CourseDetailView(DetailView):
+    model = Course
+    template_name = 'courses/course/detail.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['enroll_form'] = CourseEnrollForm(
+            initial={'course': self.object})
+        return context
