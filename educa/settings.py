@@ -39,10 +39,17 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'courses.apps.CoursesConfig',
     'students.apps.StudentsConfig',
+
+    #  for technology
     'embed_video',
     'debug_toolbar',
     'redisboard',
+
+    # for framwork
     'rest_framework',
+
+    # chat for chanel framework
+    'chat',
 
 ]
 
@@ -68,7 +75,7 @@ ROOT_URLCONF = 'educa.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'DIRS': [os.path.join('templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -126,7 +133,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static"),
+    os.path.join(BASE_DIR, 'static'),
 ]
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
@@ -149,3 +156,6 @@ CACHES = {
 INTERNAL_IPS = [
     '127.0.0.1',
 ]
+# STATICFILES_DIRS = [
+#     'D:/github_project/Building-an-E-Learning-Platform/static',
+# ]

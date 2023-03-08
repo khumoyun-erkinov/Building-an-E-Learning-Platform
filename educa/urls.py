@@ -21,6 +21,7 @@ from django.contrib.auth import views as auth_views
 from courses.views import CourseListView
 
 urlpatterns = [
+    path('admin/', admin.site.urls),
 
     path('accounts/login/', auth_views.LoginView.as_view(),
          name='login'),
@@ -33,7 +34,8 @@ urlpatterns = [
     path('__debug__/', include('debug_toolbar.urls')),
     path('api/', include('courses.api.urls', namespace='api')),
 
-    path('admin/', admin.site.urls),
+    path('chat/', include('chat.urls', namespace='chat'))
+
 
 ]
 if settings.DEBUG:
